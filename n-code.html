@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>N-Code Mobile (Skaner QR)</title>
+  <meta name="theme-color" content="#111111" />
+  <style>
+    :root{--bg:#0f0f10;--card:#17171a;--text:#f2f2f2;--muted:#b6b6b6;--line:#2a2a2f;--ok:#1ad17a;--warn:#ffb020}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    header{padding:18px 16px 12px;position:sticky;top:0;background:linear-gradient(#0f0f10 85%, rgba(15,15,16,0));backdrop-filter: blur(6px)}
+    h1{margin:0;font-size:20px;letter-spacing:.3px}
+    .sub{margin-top:6px;color:var(--muted);font-size:13px;line-height:1.35}
+    main{padding:12px 16px 100px;max-width:960px;margin:0 auto}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    label{font-size:13px;color:var(--muted)}
+    input, textarea, select, button{
+      font-size:16px;border-radius:14px;border:1px solid var(--line);
+      background:#0f0f10;color:var(--text);padding:10px 12px;outline:none
+    }
+    textarea{width:100%;min-height:140px;resize:vertical}
+    select{padding-right:34px}
+    button{border:0;cursor:pointer;background:#232329}
+    button.primary{background:#2c2c36}
+    button.good{background:rgba(26,209,122,.15);border:1px solid rgba(26,209,122,.35)}
+    button.warn{background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.35)}
+    button:active{transform:scale(.99)}
+    .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:999px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .status{margin-top:10px;font-size:13px;line-height:1.4;color:var(--muted)}
+    .status .ok{color:var(--ok)}
+    .status .warn{color:var(--warn)}
+    .split{display:grid;gap:12px}
+    @media (min-width:860px){.split{grid-template-columns:1fr 1fr}}
+    footer{
+      position:fixed;left:0;right:0;bottom:0;
+      padding:10px 16px;background:rgba(15,15,16,.92);border-top:1px solid var(--line);backdrop-filter: blur(10px)
+    }
+    .footer-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;max-width:960px;margin:0 auto}
+
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+    .modal{width:min(720px,100%);background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+    .modal h2{margin:0 0 10px 0;font-size:16px}
+    .camwrap{display:grid;gap:12px}
+    @media (min-width:860px){.camwrap{grid-template-columns:1.4fr 1fr}}
+    video{width:100%;border-radius:16px;border:1px solid var(--line);background:#000}
+    .muted{color:var(--muted);font-size:13px;line-height:1.35}
+    .small{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<header>
+  <h1>N-Code Mobile 🔐 (Skaner QR)</h1>
+  <div class="sub">
+    Szyfruje spacje i znaki. Ma skaner QR (kamera), żeby wczytać klucz bez przepisywania.
+    <br><span class="small">Tip: kamera zwykle wymaga uruchomienia strony z https albo localhost (nie zawsze działa z pliku file://).</span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <span class="pill">Szyfruje spacje ✅</span>
+        <span class="pill">Skaner QR ✅</span>
+      </div>
+      <div class="row">
+        <span class="pill">Mod: <span class="mono" id="modN"></span></span>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label for="key"><b>Klucz</b></label><br>
+        <input id="key" value="NIUNIA" placeholder="np. NIUNIA" />
+      </div>
+
+      <div>
+        <label for="mode"><b>Tryb</b></label><br>
+        <select id="mode">
+          <option value="enc">Koduj</option>
+          <option value="dec">Odkoduj</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="keyLen"><b>Losuj klucz</b></label><br>
+        <div class="row">
+          <input id="keyLen" type="number" min="4" max="64" value="12" style="width:110px" />
+          <button class="warn" id="randKey">Losuj</button>
+        </div>
+      </div>
+
+      <div>
+        <label><b>QR</b></label><br>
+        <div class="row">
+          <button class="primary" id="openScan">Skanuj QR</button>
+          <button class="primary" id="showQRText">Pokaż tekst QR</button>
+        </div>
+      </div>
+
+      <div>
+        <label><b>Narzędzia</b></label><br>
+        <div class="row">
+          <button class="primary" id="swap">Zamień pola ⇅</button>
+          <button class="primary" id="copyOut">Kopiuj wynik</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="split">
+    <div class="card">
+      <b>Tekst wejściowy</b>
+      <textarea id="input" placeholder="Wpisz wiadomość…">CZEŚĆ KRAWCU!</textarea>
+      <div class="row" style="margin-top:10px;justify-content:space-between">
+        <button class="good" id="run">Wykonaj</button>
+        <button class="primary" id="clearIn">Wyczyść wejście</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <b>Wynik</b>
+      <textarea id="output" placeholder="Tu pojawi się wynik…" readonly></textarea>
+      <div class="row" style="margin-top:10px;justify-content:space-between">
+        <button class="primary" id="clearOut">Wyczyść wynik</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-row">
+    <div class="row">
+      <span class="pill mono" id="alphaInfo"></span>
+    </div>
+    <div class="row">
+      <span class="pill">QR payload: <span class="mono">N-CODE;...;KEY=</span></span>
+    </div>
+  </div>
+</footer>
+
+<!-- Scan Modal -->
+<div class="modal-backdrop" id="scanModal">
+  <div class="modal">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2>Skaner QR</h2>
+      <div class="row">
+        <button class="primary" id="toggleCam">Start</button>
+        <button class="primary" id="closeScan">Zamknij</button>
+      </div>
+    </div>
+
+    <div class="camwrap">
+      <div>
+        <video id="video" playsinline></video>
+        <div class="muted" style="margin-top:10px" id="scanHint">
+          Nakieruj kamerę na QR z kluczem (z tej samej apki).
+        </div>
+        <div class="muted" style="margin-top:6px">
+          Jeśli wyskoczy błąd uprawnień: wejdź w ustawienia witryny i włącz „Kamera”.
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin:0">
+          <b>Odczyt</b>
+          <textarea id="scanOut" class="mono" style="min-height:160px" readonly></textarea>
+          <div class="row" style="margin-top:10px;justify-content:space-between">
+            <button class="good" id="applyKey">Ustaw klucz</button>
+            <button class="primary" id="copyScan">Kopiuj</button>
+          </div>
+          <div class="muted" style="margin-top:10px">
+            Apka wyciąga klucz z pola <span class="mono">KEY=</span>. Jeśli QR nie jest N-Code, pokaże surowy tekst.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Alphabet: PL + spacja + znaki + cyfry
+  const ALPH = [
+    "A","Ą","B","C","Ć","D","E","Ę","F","G","H","I","J","K","L","Ł","M","N","Ń","O","Ó","P","Q","R","S","Ś","T","U","V","W","X","Y","Z","Ź","Ż",
+    " ", ".", ",", "!", "?", ":", ";", "-", "_", "@", "#", "(", ")", "[", "]", "{", "}", "/", "\\", "\"", "'",
+    "0","1","2","3","4","5","6","7","8","9"
+  ];
+  const N = ALPH.length;
+  const idx = new Map(ALPH.map((ch,i)=>[ch,i]));
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    key: $("key"),
+    mode: $("mode"),
+    input: $("input"),
+    output: $("output"),
+    status: $("status"),
+    run: $("run"),
+    swap: $("swap"),
+    copyOut: $("copyOut"),
+    clearIn: $("clearIn"),
+    clearOut: $("clearOut"),
+    keyLen: $("keyLen"),
+    randKey: $("randKey"),
+    modN: $("modN"),
+    alphaInfo: $("alphaInfo"),
+
+    // scan
+    scanModal: $("scanModal"),
+    openScan: $("openScan"),
+    closeScan: $("closeScan"),
+    toggleCam: $("toggleCam"),
+    video: $("video"),
+    scanOut: $("scanOut"),
+    applyKey: $("applyKey"),
+    copyScan: $("copyScan"),
+    scanHint: $("scanHint"),
+
+    // qr text
+    showQRText: $("showQRText"),
+  };
+
+  const LS_KEY = "ncode_scanner_key_v1";
+
+  const normalize = (s) => (s ?? "").toUpperCase().replace(/\u00A0/g, " ");
+  const cleanToAlphabet = (s) => [...normalize(s)].filter(ch => idx.has(ch)).join("");
+  const cleanKey = (k) => cleanToAlphabet(k).replace(/ /g, ""); // klucz bez spacji
+
+  const setStatus = (html) => els.status.innerHTML = html;
+
+  const transform = (text, key, decrypt=false) => {
+    const t = normalize(text);
+    const k = cleanKey(key);
+    if (!k.length) return { out:"", warnings:["Klucz po filtracji jest pusty."], keyUsed:"" };
+
+    let out = "", ki = 0, unknown = 0;
+    for (const ch of t) {
+      if (!idx.has(ch)) { out += ch; unknown++; continue; }
+      const a = idx.get(ch);
+      const b = idx.get(k[ki % k.length]);
+      const v = decrypt ? (a - b + N) % N : (a + b) % N;
+      out += ALPH[v];
+      ki++;
+    }
+    const warnings = [];
+    if (unknown) warnings.push(`Pozostawiono ${unknown} znak(ów) spoza alfabetu.`);
+    return { out, warnings, keyUsed:k };
+  };
+
+  const alphaSig = () => {
+    const head = ALPH.slice(0,10).join("");
+    const tail = ALPH.slice(-10).join("");
+    return `${head}|${tail}`;
+  };
+
+  const makePayload = () => {
+    const keyUsed = cleanKey(els.key.value);
+    return `N-CODE;V=1;MOD=${N};ALPHA=${alphaSig()};KEY=${keyUsed}`;
+  };
+
+  const run = () => {
+    localStorage.setItem(LS_KEY, els.key.value);
+    const mode = els.mode.value;
+    const { out, warnings, keyUsed } = transform(els.input.value, els.key.value, mode === "dec");
+    els.output.value = out;
+    const msg = [
+      `<span class="ok">OK</span> • klucz: <span class="mono">${keyUsed}</span> • mod <span class="mono">${N}</span>`,
+      ...warnings.map(w=>`<span class="warn">${w}</span>`)
+    ].join("<br>");
+    setStatus(msg);
+  };
+
+  const swap = () => {
+    const a = els.input.value;
+    els.input.value = els.output.value;
+    els.output.value = a;
+    run();
+  };
+
+  const copyOut = async () => {
+    try { await navigator.clipboard.writeText(els.output.value); setStatus(`<span class="ok">Skopiowane.</span>`); }
+    catch { setStatus(`<span class="warn">Nie mogę skopiować automatycznie. Skopiuj ręcznie.</span>`); }
+  };
+
+  const randKey = () => {
+    const len = Math.max(4, Math.min(64, Number(els.keyLen.value) || 12));
+    const KEY_ALPH = ["A","Ą","B","C","Ć","D","E","Ę","F","G","H","I","J","K","L","Ł","M","N","Ń","O","Ó","P","Q","R","S","Ś","T","U","V","W","X","Y","Z","Ź","Ż"];
+    const buf = new Uint32Array(len);
+    crypto.getRandomValues(buf);
+    let k = "";
+    for (let i=0;i<len;i++) k += KEY_ALPH[buf[i] % KEY_ALPH.length];
+    els.key.value = k;
+    run();
+  };
+
+  // --- QR SCANNER ---
+  let stream = null;
+  let scanning = false;
+  let detector = null;
+  let rafId = null;
+
+  const supportsBarcodeDetector = () => ("BarcodeDetector" in window);
+
+  const openModal = (open) => {
+    els.scanModal.style.display = open ? "flex" : "none";
+  };
+
+  const stopCamera = async () => {
+    scanning = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (stream) {
+      for (const t of stream.getTracks()) t.stop();
+      stream = null;
+    }
+    els.video.srcObject = null;
+    els.toggleCam.textContent = "Start";
+  };
+
+  const startCamera = async () => {
+    if (!supportsBarcodeDetector()) {
+      els.scanHint.innerHTML = `Brak <span class="mono">BarcodeDetector</span> w tej przeglądarce 😕<br/>Użyj nowszego Chrome albo skanera zewnętrznego.`;
+      setStatus(`<span class="warn">Skaner QR wymaga Chrome z BarcodeDetector.</span>`);
+      return;
+    }
+
+    try {
+      detector = new BarcodeDetector({ formats: ["qr_code"] });
+    } catch (e) {
+      setStatus(`<span class="warn">Nie mogę uruchomić BarcodeDetector: </span>${String(e.message || e)}`);
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      els.video.srcObject = stream;
+      await els.video.play();
+      scanning = true;
+      els.toggleCam.textContent = "Stop";
+      scanLoop();
+    } catch (e) {
+      const msg = String(e.message || e);
+      setStatus(`<span class="warn">Kamera nie ruszyła:</span> ${msg}`);
+      els.scanHint.innerHTML = `Jeśli otwierasz z pliku <span class="mono">file://</span>, kamera może nie działać.<br/>Odpal to z <span class="mono">https</span> albo <span class="mono">http://localhost</span>.`;
+    }
+  };
+
+  const parseKeyFromPayload = (text) => {
+    // Expected: N-CODE;V=1;MOD=...;ALPHA=...;KEY=...
+    const up = (text || "").trim();
+    const m = up.match(/(^|;)KEY=([^;]+)/i);
+    if (!m) return null;
+    return m[2].trim();
+  };
+
+  const scanLoop = async () => {
+    if (!scanning || !detector) return;
+    try {
+      const barcodes = await detector.detect(els.video);
+      if (barcodes && barcodes.length) {
+        const raw = barcodes[0].rawValue || "";
+        els.scanOut.value = raw;
+
+        const maybeKey = parseKeyFromPayload(raw);
+        if (maybeKey) {
+          els.scanHint.innerHTML = `<span class="ok">Wykryto N-Code.</span> Kliknij „Ustaw klucz”.`;
+        } else {
+          els.scanHint.innerHTML = `Wykryto QR, ale to nie wygląda jak N-Code (brak <span class="mono">KEY=</span>).`;
+        }
+        // zatrzymaj po wykryciu, żeby nie „mieliło” dalej
+        await stopCamera();
+        return;
+      }
+    } catch (e) {
+      // ignoruj pojedyncze błędy
+    }
+    rafId = requestAnimationFrame(scanLoop);
+  };
+
+  const applyScannedKey = () => {
+    const raw = els.scanOut.value || "";
+    const maybeKey = parseKeyFromPayload(raw);
+    if (!maybeKey) {
+      setStatus(`<span class="warn">Nie widzę KEY= w zeskanowanym tekście.</span>`);
+      return;
+    }
+    // filtrujemy do naszego alfabetu i wywalamy spacje z klucza
+    const filtered = cleanKey(maybeKey);
+    if (!filtered.length) {
+      setStatus(`<span class="warn">Klucz po filtracji jest pusty (sprawdź alfabet).</span>`);
+      return;
+    }
+    els.key.value = filtered;
+    localStorage.setItem(LS_KEY, els.key.value);
+    setStatus(`<span class="ok">Klucz ustawiony z QR.</span>`);
+    run();
+    openModal(false);
+  };
+
+  const copyScan = async () => {
+    try { await navigator.clipboard.writeText(els.scanOut.value || ""); setStatus(`<span class="ok">Skopiowane.</span>`); }
+    catch { setStatus(`<span class="warn">Nie mogę skopiować automatycznie.</span>`); }
+  };
+
+  const showQRText = async () => {
+    const payload = makePayload();
+    try {
+      await navigator.clipboard.writeText(payload);
+      setStatus(`<span class="ok">Skopiowałam tekst QR do schowka.</span> Wyślij koledze albo wklej w generator QR.`);
+    } catch {
+      els.output.value = payload;
+      setStatus(`<span class="warn">Nie mogę skopiować. Wrzuciłam tekst QR do pola „Wynik”.</span>`);
+    }
+  };
+
+  // init
+  els.modN.textContent = String(N);
+  els.alphaInfo.textContent = "ALPH=PL + spacja/znaki/cyfry";
+  const savedKey = localStorage.getItem(LS_KEY);
+  if (savedKey) els.key.value = savedKey;
+
+  run();
+
+  // events
+  els.run.addEventListener("click", run);
+  els.mode.addEventListener("change", run);
+  els.key.addEventListener("input", () => localStorage.setItem(LS_KEY, els.key.value));
+  els.swap.addEventListener("click", swap);
+  els.copyOut.addEventListener("click", copyOut);
+  els.clearIn.addEventListener("click", () => { els.input.value=""; run(); });
+  els.clearOut.addEventListener("click", () => { els.output.value=""; setStatus(`<span class="ok">Wynik wyczyszczony.</span>`); });
+  els.randKey.addEventListener("click", randKey);
+
+  els.openScan.addEventListener("click", () => { els.scanOut.value=""; els.scanHint.textContent="Nakieruj kamerę na QR z kluczem."; openModal(true); });
+  els.closeScan.addEventListener("click", async () => { await stopCamera(); openModal(false); });
+  els.scanModal.addEventListener("click", async (e) => { if (e.target === els.scanModal) { await stopCamera(); openModal(false); } });
+
+  els.toggleCam.addEventListener("click", async () => {
+    if (stream) await stopCamera();
+    else await startCamera();
+  });
+
+  els.applyKey.addEventListener("click", applyScannedKey);
+  els.copyScan.addEventListener("click", copyScan);
+  els.showQRText.addEventListener("click", showQRText);
+
+})();
+</script>
+</body>
+</html>
